@@ -74,11 +74,37 @@ class AdminController extends Controller
      */
     public function stats()
     {
+        $totalUsers = User::where('role', 'user')->count();
+        $males      = User::where('role', 'user')->where('gender', 'male')->count();
+        $females    = User::where('role', 'user')->where('gender', 'female')->count();
+        $banned     = User::where('is_banned', true)->count();
+
+        $pendingReports = \App\Models\Report::where('status', 'pending')->count();
+
+        $recentUsers = User::where('role', 'user')
+            ->with('profile')
+            ->latest()
+            ->take(10)
+            ->get()
+            ->map(function ($u) {
+                return [
+                    'id'         => $u->id,
+                    'name'       => $u->name,
+                    'gender'     => $u->gender,
+                    'email'      => $u->email,
+                    'is_banned'  => $u->is_banned,
+                    'created_at' => $u->created_at,
+                    'nickname'   => $u->profile->nickname ?? null,
+                ];
+            });
+
         return response()->json([
-            'total_users' => User::count(),
-            'males' => User::whereHas('profile', function($q) { $q->where('gender', 'male'); })->count(),
-            'females' => User::whereHas('profile', function($q) { $q->where('gender', 'female'); })->count(),
-            'banned_users' => User::where('is_banned', true)->count(),
+            'total_users'     => $totalUsers,
+            'males'           => $males,
+            'females'         => $females,
+            'banned_users'    => $banned,
+            'pending_reports' => $pendingReports,
+            'recent_users'    => $recentUsers,
         ]);
     }
 }
