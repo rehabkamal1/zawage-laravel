@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Http\Requests\StoreProfileRequest;
 
 class ProfileController extends Controller
 {
@@ -12,6 +13,9 @@ class ProfileController extends Controller
      */
     public function show(Request $request)
     {
+        if (!$request->user()) {
+            return response()->json(['message' => 'يجب تسجيل الدخول أولاً'], 401);
+        }
         return response()->json([
             'profile' => $request->user()->profile()->firstOrCreate(['user_id' => $request->user()->id]),
         ]);
@@ -20,8 +24,11 @@ class ProfileController extends Controller
     /**
      * Update the authenticated user's profile.
      */
-    public function update(Request $request)
+    public function update(StoreProfileRequest $request)
     {
+        if (!$request->user()) {
+            return response()->json(['message' => 'يجب تسجيل الدخول أولاً'], 401);
+        }
         $user = $request->user();
         
         // We'll accept all fields sent since we have fillable set up

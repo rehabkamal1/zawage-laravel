@@ -18,10 +18,10 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             
             // Basic Info
-            $table->string('full_name')->nullable();
+            $table->string('full_name');
             $table->string('nickname')->nullable();
-            $table->string('phone')->nullable();
-            $table->date('dob')->nullable();
+            $table->string('phone');
+            $table->date('dob');
             $table->string('marital_status')->nullable();
             
             // Physical Info
@@ -30,18 +30,18 @@ return new class extends Migration
             $table->integer('height')->nullable();
             
             // Location
-            $table->string('governorate')->nullable();
-            $table->string('area')->nullable();
-            $table->text('address')->nullable();
+            $table->string('governorate');
+            $table->string('area');
+            $table->text('address');
             
             // Education & Religion
-            $table->string('education')->nullable();
-            $table->string('job')->nullable();
-            $table->string('income')->nullable();
-            $table->string('accommodation')->nullable();
-            $table->string('prayer')->nullable();
-            $table->string('hijab')->nullable(); // For females
-            $table->string('smoking')->nullable();
+            $table->string('education');
+            $table->string('job');
+            $table->string('income');
+            $table->string('accommodation');
+            $table->string('prayer');
+            $table->string('hijab'); // For females
+            $table->string('smoking');
             
             // Family & Questions
             $table->boolean('has_children')->default(false);

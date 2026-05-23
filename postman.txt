@@ -1,0 +1,328 @@
+=============================================
+ ZAWAGE - POSTMAN API REFERENCE
+ Base URL: http://127.0.0.1:8000/api
+ Headers for authenticated routes:
+   Authorization: Bearer {token}
+   Accept: application/json
+   Content-Type: application/json
+=============================================
+
+
+===========================
+  FEMALE (أنثى) EXAMPLE
+===========================
+
+---------------------------------------------------
+1. POST /send-otp
+   Description: Send OTP to email (before login)
+   Auth: No
+   Body (JSON):
+   {
+     "email": "fatma@example.com",
+     "password": "fatma1234"
+   }
+---------------------------------------------------
+
+---------------------------------------------------
+2. POST /register
+   Description: Register a new female user
+   Auth: No
+   Body (JSON):
+   {
+     "name": "فاطمة أحمد",
+     "email": "fatma@example.com",
+     "gender": "female",
+     "password": "fatma1234"
+   }
+---------------------------------------------------
+
+---------------------------------------------------
+3. POST /login
+   Auth: No
+   Body (JSON):
+   {
+     "email": "fatma@example.com",
+     "password": "fatma1234",
+     "code": "123456"
+   }
+---------------------------------------------------
+
+---------------------------------------------------
+4. PUT /password
+   Auth: Bearer Token
+   Body (JSON):
+   {
+     "current_password": "fatma1234",
+     "password": "fatma5678",
+     "password_confirmation": "fatma5678"
+   }
+---------------------------------------------------
+
+---------------------------------------------------
+5. PUT /profile (Female)
+   Auth: Bearer Token
+   Body (JSON):
+   {
+     "full_name": "فاطمة أحمد محمد",
+     "phone": "01234567890",
+     "dob": "1998-03-20",
+     "governorate": "القاهرة",
+     "area": "مدينة نصر",
+     "address": "شارع مصطفى النحاس، عمارة 15",
+     "education": "بكالوريوس",
+     "job": "مدرسة",
+     "income": "متوسط",
+     "accommodation": "مع الأهل",
+     "prayer": "ملتزمة",
+     "hijab": "محجبة",
+     "smoking": "لا",
+     "nickname": "فطومة",
+     "marital_status": "آنسة",
+     "skin_tone": "قمحية",
+     "weight": 60,
+     "height": 163,
+     "has_children": false,
+     "children_count": 0,
+     "custody": null,
+     "guardian_name": "أحمد محمد علي",
+     "guardian_phone": "01098765432",
+     "relation": "أب",
+     "move_other_gov": true,
+     "family_house": false,
+     "dowry_status": "قابل للتفاوض",
+     "accept_polygamy": false,
+     "diseases": null,
+     "bio": "فتاة ملتزمة، أحب القراءة والطبخ، أبحث عن شريك حياة متدين وطموح.",
+     "req_governorate": "القاهرة",
+     "req_age_min": 25,
+     "req_age_max": 35,
+     "req_marital_status": "أعزب",
+     "req_hijab": null,
+     "req_weight": "70-90",
+     "req_height": "170-185",
+     "req_prayer": "ملتزم",
+     "req_move_other_gov": "نعم",
+     "req_has_children": "لا",
+     "req_children_count": 0,
+     "req_job": "أي وظيفة",
+     "req_education": "بكالوريوس أو أعلى",
+     "req_smoking": "لا",
+     "req_accept_polygamy": "لا",
+     "partner_status": "أعزب",
+     "partner_specs": "شاب ملتزم دينياً، طموح، محترم، ويقدر الحياة الأسرية."
+   }
+---------------------------------------------------
+
+
+===========================
+  MALE (ذكر) EXAMPLE
+===========================
+
+---------------------------------------------------
+1. POST /send-otp
+   Auth: No
+   Body (JSON):
+   {
+     "email": "ahmed@example.com",
+     "password": "ahmed1234"
+   }
+---------------------------------------------------
+
+---------------------------------------------------
+2. POST /register
+   Description: Register a new male user
+   Auth: No
+   Body (JSON):
+   {
+     "name": "أحمد محمد علي",
+     "email": "ahmed@example.com",
+     "gender": "male",
+     "password": "ahmed1234"
+   }
+---------------------------------------------------
+
+---------------------------------------------------
+3. POST /login
+   Auth: No
+   Body (JSON):
+   {
+     "email": "ahmed@example.com",
+     "password": "ahmed1234",
+     "code": "123456"
+   }
+---------------------------------------------------
+
+---------------------------------------------------
+4. PUT /password
+   Auth: Bearer Token
+   Body (JSON):
+   {
+     "current_password": "ahmed1234",
+     "password": "ahmed5678",
+     "password_confirmation": "ahmed5678"
+   }
+---------------------------------------------------
+
+---------------------------------------------------
+5. PUT /profile (Male)
+   Auth: Bearer Token
+   Body (JSON):
+   {
+     "full_name": "أحمد محمد علي",
+     "phone": "01012345678",
+     "dob": "1995-06-15",
+     "governorate": "الجيزة",
+     "area": "الدقي",
+     "address": "شارع التحرير، عمارة 8",
+     "education": "بكالوريوس هندسة",
+     "job": "مهندس برمجيات",
+     "income": "فوق المتوسط",
+     "accommodation": "شقة إيجار",
+     "prayer": "ملتزم",
+     "hijab": "غير محدد",
+     "smoking": "لا",
+     "nickname": "أبو حميد",
+     "marital_status": "أعزب",
+     "skin_tone": "بيضاء",
+     "weight": 80,
+     "height": 178,
+     "has_children": false,
+     "children_count": 0,
+     "custody": null,
+     "guardian_name": "محمد علي حسن",
+     "guardian_phone": "01155667788",
+     "relation": "أب",
+     "move_other_gov": false,
+     "family_house": true,
+     "dowry_status": "جاهز",
+     "accept_polygamy": false,
+     "diseases": null,
+     "bio": "شاب ملتزم وطموح، أعمل مهندس برمجيات، أبحث عن شريكة حياة متدينة وطيبة القلب.",
+     "req_governorate": "القاهرة",
+     "req_age_min": 20,
+     "req_age_max": 28,
+     "req_marital_status": "آنسة",
+     "req_hijab": "محجبة",
+     "req_weight": "50-70",
+     "req_height": "155-168",
+     "req_prayer": "ملتزمة",
+     "req_move_other_gov": "نعم",
+     "req_has_children": "لا",
+     "req_children_count": 0,
+     "req_job": "أي وظيفة",
+     "req_education": "بكالوريوس أو أعلى",
+     "req_smoking": "لا",
+     "req_accept_polygamy": "لا",
+     "partner_status": "آنسة",
+     "partner_specs": "فتاة ملتزمة دينياً، طيبة القلب، تحب الحياة الأسرية."
+   }
+---------------------------------------------------
+
+
+===========================
+  SHARED ROUTES (no body difference)
+===========================
+
+---------------------------------------------------
+GET /me
+   Auth: Bearer Token
+   Body: None
+---------------------------------------------------
+
+---------------------------------------------------
+GET /profile
+   Auth: Bearer Token
+   Body: None
+---------------------------------------------------
+
+---------------------------------------------------
+POST /logout
+   Auth: Bearer Token
+   Body: None
+---------------------------------------------------
+
+---------------------------------------------------
+GET /matches
+   Auth: Bearer Token
+   Body: None
+---------------------------------------------------
+
+---------------------------------------------------
+GET /favorites
+   Auth: Bearer Token
+   Body: None
+---------------------------------------------------
+
+---------------------------------------------------
+POST /favorites
+   Auth: Bearer Token
+   Body (JSON):
+   {
+     "user_id": 5
+   }
+---------------------------------------------------
+
+---------------------------------------------------
+POST /reports
+   Auth: Bearer Token
+   Body (JSON):
+   {
+     "reported_user_id": 5,
+     "reason": "سلوك غير لائق"
+   }
+---------------------------------------------------
+
+
+===========================
+  ADMIN ROUTES
+===========================
+
+---------------------------------------------------
+GET /admin/stats
+   Auth: Bearer Token + Admin
+   Body: None
+---------------------------------------------------
+
+---------------------------------------------------
+GET /admin/users
+   Auth: Bearer Token + Admin
+   Body: None
+---------------------------------------------------
+
+---------------------------------------------------
+PUT /admin/users/{id}
+   Auth: Bearer Token + Admin
+   Body (JSON):
+   {
+     "name": "اسم جديد",
+     "email": "new@example.com",
+     "role": "user"
+   }
+---------------------------------------------------
+
+---------------------------------------------------
+DELETE /admin/users/{id}
+   Auth: Bearer Token + Admin
+   Body: None
+---------------------------------------------------
+
+---------------------------------------------------
+POST /admin/users/{id}/toggle-ban
+   Auth: Bearer Token + Admin
+   Body: None
+---------------------------------------------------
+
+---------------------------------------------------
+GET /admin/reports
+   Auth: Bearer Token + Admin
+   Body: None
+---------------------------------------------------
+
+---------------------------------------------------
+PUT /admin/reports/{id}
+   Auth: Bearer Token + Admin
+   Body (JSON):
+   {
+     "status": "resolved"
+   }
+---------------------------------------------------
