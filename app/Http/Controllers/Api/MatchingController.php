@@ -67,19 +67,81 @@ class MatchingController extends Controller
 
         $myProfile = $user->profile;
 
+        // Find active subscription and unlocked user IDs if user is male
+        $activeSub = null;
+        $unlockedUserIds = [];
+        if ($user->gender === 'male') {
+            $activeSub = $user->subscriptions()
+                ->where('status', 'active')
+                ->where('expires_at', '>', now())
+                ->first();
+
+            if (!$activeSub) {
+                return response()->json([
+                    'message' => 'عذراً، يجب عليك تفعيل اشتراك نشط أولاً لتتمكن من رؤية الشركاء ونسب التوافق.',
+                    'requires_subscription' => true,
+                    'matches' => [],
+                ], 403);
+            }
+
+            $unlockedUserIds = \App\Models\Contact::where('user_id', $user->id)
+                ->where('subscription_id', $activeSub->id)
+                ->pluck('contacted_user_id')
+                ->toArray();
+        }
+
         // Calculate compatibility for each match
-        $matches = $potentialMatches->map(function ($match) use ($myProfile) {
+        $matches = $potentialMatches->map(function ($match) use ($myProfile, $user, $unlockedUserIds) {
             $theirProfile = $match->profile;
             $percentage = $this->calculateCompatibility($myProfile, $theirProfile);
 
             $matchData = $match->toArray();
             $matchData['match_percentage'] = $percentage;
+            $matchData['compatibility_score'] = $percentage; // Return compatibility_score in results to match frontend
+
+            if ($user->gender === 'male') {
+                $isUnlocked = in_array($match->id, $unlockedUserIds);
+                $matchData['is_unlocked'] = $isUnlocked;
+
+                if ($isUnlocked) {
+                    // Show guardian's phone number instead of bride's personal number
+                    $guardianPhone = $theirProfile->guardian_phone ?? '';
+                    $matchData['phone'] = $guardianPhone;
+                    if (isset($matchData['profile'])) {
+                        $matchData['profile']['phone'] = $guardianPhone;
+                    }
+                    $matchData['whatsapp_link'] = $guardianPhone
+                        ? 'https://wa.me/' . preg_replace('/\D/', '', $guardianPhone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
+                        : null;
+                } else {
+                    // Mask phone numbers until they unlock it
+                    $matchData['phone'] = 'مخفي - تواصل لفك القفل';
+                    if (isset($matchData['profile'])) {
+                        $matchData['profile']['phone'] = 'مخفي - تواصل لفك القفل';
+                    }
+                    $matchData['whatsapp_link'] = null;
+                }
+            } else {
+                // Females can see grooms' phone numbers directly
+                $matchData['is_unlocked'] = true;
+                $phone = $match->phone ?? '';
+                $matchData['phone'] = $phone;
+                $matchData['whatsapp_link'] = $phone
+                    ? 'https://wa.me/' . preg_replace('/\D/', '', $phone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
+                    : null;
+            }
 
             return $matchData;
         });
 
-        // Sort by match_percentage descending
+        // Sort by match_percentage descending (highest compatibility score first)
         $matches = $matches->sortByDesc('match_percentage')->values();
+
+        // Limit the results based on the subscription type for male users
+        if ($user->gender === 'male' && $activeSub) {
+            $limit = $activeSub->type === 'daily' ? 20 : 50;
+            $matches = $matches->take($limit)->values();
+        }
 
         return response()->json([
             'matches' => $matches,
@@ -202,5 +264,110 @@ class MatchingController extends Controller
         }
 
         return (int) round(($matchedCriteria / $totalCriteria) * 100);
+    }
+
+    /**
+     * Unlock and fetch contact details for a partner (Bride/Groom).
+     * Deducts 1 view/attempt from active subscription if male viewer and first time contacting.
+     */
+    public function contact(Request $request, $id)
+    {
+        $user = $request->user();
+        $targetUser = User::where('id', $id)->where('is_banned', false)->where('role', 'user')->first();
+
+        if (!$targetUser) {
+            return response()->json(['message' => 'الملف الشخصي المستهدف غير موجود أو تم حظره.'], 404);
+        }
+
+        if ($targetUser->gender === $user->gender) {
+            return response()->json(['message' => 'لا يمكنك التواصل مع ملف شخصي من نفس جنسك.'], 400);
+        }
+
+        $theirProfile = $targetUser->profile;
+        if (!$theirProfile) {
+            return response()->json(['message' => 'الملف الشخصي المستهدف لم يكمل استمارته بعد.'], 404);
+        }
+
+        // Check if the viewer is male
+        if ($user->gender === 'male') {
+            // Find active subscription
+            $activeSub = $user->subscriptions()
+                ->where('status', 'active')
+                ->where('expires_at', '>', now())
+                ->first();
+
+            if (!$activeSub) {
+                return response()->json([
+                    'message' => 'عذراً، يجب عليك تفعيل اشتراك نشط أولاً لتتمكن من فك قفل استمارات التواصل وتفاصيل الاتصال.',
+                    'requires_subscription' => true
+                ], 403);
+            }
+
+            // Check if already contacted/unlocked under this active subscription
+            $existingContact = \App\Models\Contact::where('user_id', $user->id)
+                ->where('contacted_user_id', $targetUser->id)
+                ->where('subscription_id', $activeSub->id)
+                ->first();
+
+            if ($existingContact) {
+                $guardianPhone = $theirProfile->guardian_phone ?? '';
+                return response()->json([
+                    'message' => 'تم فك القفل مسبقاً لهذا الملف الشخصي.',
+                    'is_unlocked' => true,
+                    'phone' => $guardianPhone,
+                    'whatsapp_link' => $guardianPhone
+                        ? 'https://wa.me/' . preg_replace('/\D/', '', $guardianPhone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
+                        : null,
+                    'views_used' => $activeSub->views_used,
+                    'views_allowed' => $activeSub->views_allowed,
+                ]);
+            }
+
+            // Deduct 1 attempt: Check if views left
+            if ($activeSub->views_used >= $activeSub->views_allowed) {
+                return response()->json([
+                    'message' => 'عذراً، لقد استنفدت جميع محاولات التواصل المتاحة في باقتك الحالية. يرجى تجديد الاشتراك للتمكن من التواصل مع المزيد.',
+                    'limit_reached' => true,
+                    'views_used' => $activeSub->views_used,
+                    'views_allowed' => $activeSub->views_allowed,
+                ], 403);
+            }
+
+            // Record contact click and increment used attempts
+            \App\Models\Contact::create([
+                'user_id' => $user->id,
+                'contacted_user_id' => $targetUser->id,
+                'subscription_id' => $activeSub->id,
+            ]);
+
+            $activeSub->increment('views_used');
+
+            $guardianPhone = $theirProfile->guardian_phone ?? '';
+
+            return response()->json([
+                'message' => 'تم فك القفل وتواصلك مع العروس بنجاح. تم خصم محاولة واحدة.',
+                'is_unlocked' => true,
+                'phone' => $guardianPhone,
+                'whatsapp_link' => $guardianPhone
+                    ? 'https://wa.me/' . preg_replace('/\D/', '', $guardianPhone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
+                    : null,
+                'views_used' => $activeSub->views_used,
+                'views_allowed' => $activeSub->views_allowed,
+            ]);
+
+        } else {
+            // Female users have unlimited free access to contact grooms
+            $phone = $targetUser->phone ?? '';
+            return response()->json([
+                'message' => 'تفاصيل التواصل للملف الشخصي.',
+                'is_unlocked' => true,
+                'phone' => $phone,
+                'whatsapp_link' => $phone
+                    ? 'https://wa.me/' . preg_replace('/\D/', '', $phone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
+                    : null,
+                'views_used' => 0,
+                'views_allowed' => -1, // Unlimited
+            ]);
+        }
     }
 }

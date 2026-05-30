@@ -9,11 +9,19 @@ use App\Http\Controllers\Api\MatchingController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\FavoriteController;
+use App\Http\Controllers\Api\PaymentController;
 
+// Public Guest Auth Routes
 Route::post('/send-otp', [AuthController::class, 'sendOTP']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// Paymob Callback Webhook & Sandbox simulation routes (Publicly Accessible)
+Route::post('/payments/callback', [PaymentController::class, 'handleCallback']);
+Route::get('/subscriptions/{id}/simulate-payment-page', [PaymentController::class, 'simulatePaymentPage']);
+Route::post('/subscriptions/{id}/simulate-payment', [PaymentController::class, 'simulatePayment']);
+
+// Authenticated Routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -23,8 +31,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
 
-    // Matching routes
+    // Matching & Contact routes
     Route::get('/matches', [MatchingController::class, 'index']);
+    Route::post('/matches/{id}/contact', [MatchingController::class, 'contact']);
+
+    // Subscriptions/Payment initiation routes
+    Route::post('/subscriptions/subscribe', [PaymentController::class, 'subscribe']);
 
     // Favorite routes
     Route::get('/favorites', [FavoriteController::class, 'index']);

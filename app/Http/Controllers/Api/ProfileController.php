@@ -31,6 +31,20 @@ class ProfileController extends Controller
         }
         $user = $request->user();
         
+        // Enforce subscription for male users before filling/updating the profile/form
+        if ($user->gender === 'male') {
+            $hasActiveSubscription = $user->subscriptions()
+                ->where('status', 'active')
+                ->where('expires_at', '>', now())
+                ->exists();
+            if (!$hasActiveSubscription) {
+                return response()->json([
+                    'message' => 'عذراً، يجب عليك الاشتراك وتفعيل حسابك أولاً بالدفع لتتمكن من ملء استمارة الزواج.',
+                    'requires_subscription' => true
+                ], 403);
+            }
+        }
+
         // We'll accept all fields sent since we have fillable set up
         $data = $request->all();
 

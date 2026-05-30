@@ -1,2 +1,5 @@
 *.sqlite*
+*postman.txt*
 postman.txt
+
+
