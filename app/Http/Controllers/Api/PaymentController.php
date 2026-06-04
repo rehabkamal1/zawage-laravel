@@ -55,15 +55,23 @@ class PaymentController extends Controller
             'status' => 'pending',
         ]);
 
-        // Check for Paymob keys configuration. If missing, use mock testing sandbox mode.
+        // Check for Paymob keys configuration.
         $apiKey = env('PAYMOB_API_KEY');
         $integrationId = $paymentMethod === 'vodafone_cash' 
             ? env('PAYMOB_INTEGRATION_ID_VODAFONE') 
             : env('PAYMOB_INTEGRATION_ID_INSTAPAY');
         $iframeId = env('PAYMOB_IFRAME_ID');
 
+        $isProduction = app()->environment('production');
+
         if (!$apiKey || !$integrationId) {
-            // Mock sandbox mode
+            if ($isProduction) {
+                return response()->json([
+                    'message' => 'عذراً، بيانات تهيئة بوابة الدفع (Paymob) غير مكتملة على الخادم.',
+                ], 500);
+            }
+
+            // Mock sandbox mode (only for local/testing)
             $mockOrderId = 'MOCK_ORDER_' . rand(100000, 999999);
             $payment->update(['paymob_order_id' => $mockOrderId]);
 
@@ -186,7 +194,14 @@ class PaymentController extends Controller
         } catch (\Exception $e) {
             Log::error('Paymob Integration Error: ' . $e->getMessage());
 
-            // Fallback to mock so developers don't get stuck if server/keys fail
+            if ($isProduction) {
+                return response()->json([
+                    'message' => 'فشلت عملية تهيئة الدفع مع Paymob. يرجى المحاولة مرة أخرى لاحقاً أو التواصل مع الدعم الفني.',
+                    'error_details' => app()->environment('local', 'testing') ? $e->getMessage() : null,
+                ], 500);
+            }
+
+            // Fallback to mock so developers don't get stuck if server/keys fail (only in local/testing)
             $mockOrderId = 'MOCK_ORDER_ERR_' . rand(100000, 999999);
             $payment->update(['paymob_order_id' => $mockOrderId]);
 
@@ -208,6 +223,10 @@ class PaymentController extends Controller
      */
     public function simulatePaymentPage($subscriptionId)
     {
+        if (app()->environment('production')) {
+            abort(403, 'غير مسموح بوضع المحاكاة في البيئة الإنتاجية.');
+        }
+
         $subscription = Subscription::findOrFail($subscriptionId);
         $payment = Payment::where('subscription_id', $subscriptionId)->firstOrFail();
         $user = $subscription->user;
@@ -305,6 +324,10 @@ class PaymentController extends Controller
      */
     public function simulatePayment(Request $request, $subscriptionId)
     {
+        if (app()->environment('production')) {
+            abort(403, 'غير مسموح بوضع المحاكاة في البيئة الإنتاجية.');
+        }
+
         $subscription = Subscription::findOrFail($subscriptionId);
         $payment = Payment::where('subscription_id', $subscriptionId)->firstOrFail();
 
