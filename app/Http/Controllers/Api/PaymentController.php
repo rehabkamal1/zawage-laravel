@@ -19,11 +19,11 @@ class PaymentController extends Controller
     public function subscribe(Request $request)
     {
         $request->validate([
-            'type' => 'required|string|in:daily,monthly',
+            'type' => 'required|string|in:daily,weekly,monthly',
             'payment_method' => 'required|string|in:vodafone_cash,instapay',
             'wallet_number' => 'required_if:payment_method,vodafone_cash|string|max:15',
         ], [
-            'type.in' => 'نوع الاشتراك يجب أن يكون يومي (daily) أو شهري (monthly).',
+            'type.in' => 'نوع الاشتراك يجب أن يكون يومي (daily)، أسبوعي (weekly) أو شهري (monthly).',
             'payment_method.in' => 'طريقة الدفع يجب أن تكون فودافون كاش (vodafone_cash) أو إنستا باي (instapay).',
             'wallet_number.required_if' => 'رقم المحفظة مطلوب عند اختيار الدفع عبر فودافون كاش.',
         ]);
@@ -33,8 +33,16 @@ class PaymentController extends Controller
         $paymentMethod = $request->payment_method;
 
         // Pricing and limits configuration
-        $amount = $type === 'daily' ? 100.00 : 300.00;
-        $viewsAllowed = $type === 'daily' ? 5 : 20;
+        if ($type === 'daily') {
+            $amount = 50.00;
+            $viewsAllowed = 3;
+        } elseif ($type === 'weekly') {
+            $amount = 100.00;
+            $viewsAllowed = 7;
+        } else {
+            $amount = 300.00;
+            $viewsAllowed = 25;
+        }
 
         // 1. Create a pending subscription
         $subscription = Subscription::create([
@@ -304,7 +312,7 @@ class PaymentController extends Controller
                     
                     <div class='details'>
                         <div><span>اسم المشترك:</span> <span>{$user->name}</span></div>
-                        <div><span>نوع الاشتراك:</span> <span>" . ($subscription->type === 'daily' ? 'يومي (5 استمارات)' : 'شهري (20 استمارة)') . "</span></div>
+                        <div><span>نوع الاشتراك:</span> <span>" . ($subscription->type === 'daily' ? 'يومي (3 محاولات)' : ($subscription->type === 'weekly' ? 'أسبوعي (7 محاولات)' : 'شهري (25 محاولة)')) . "</span></div>
                         <div><span>المبلغ المستحق:</span> <span>{$payment->amount} جنيه مصري</span></div>
                         <div><span>طريقة الدفع:</span> <span>" . ($payment->payment_method === 'vodafone_cash' ? 'فودافون كاش' : 'إنستا باي') . "</span></div>
                         <div><span>حالة المعاملة:</span> <span style='color: #dd6b20;'>قيد الانتظار</span></div>
@@ -338,7 +346,13 @@ class PaymentController extends Controller
         ]);
 
         // Update Subscription to active
-        $days = $subscription->type === 'daily' ? 1 : 30;
+        if ($subscription->type === 'daily') {
+            $days = 1;
+        } elseif ($subscription->type === 'weekly') {
+            $days = 7;
+        } else {
+            $days = 30;
+        }
         $subscription->update([
             'status' => 'active',
             'expires_at' => now()->addDays($days),
@@ -383,7 +397,7 @@ class PaymentController extends Controller
                 <div class='card'>
                     <div class='icon'>🎉</div>
                     <h1>تم الدفع وتفعيل الاشتراك بنجاح!</h1>
-                    <p>لقد تم تفعيل اشتراكك الـ " . ($subscription->type === 'daily' ? 'يومي' : 'شهري') . " بنجاح. يمكنك الآن ملء استمارة الزواج والبحث عن شريك حياتك والتواصل معه.</p>
+                    <p>لقد تم تفعيل اشتراكك الـ " . ($subscription->type === 'daily' ? 'يومي' : ($subscription->type === 'weekly' ? 'أسبوعي' : 'شهري')) . " بنجاح. يمكنك الآن ملء استمارة الزواج والبحث عن شريك حياتك والتواصل معه.</p>
                     <p style='margin-top: 20px; font-weight: bold; color: #4c3a7a;'>يمكنك إغلاق هذه الصفحة والعودة للتطبيق الآن.</p>
                 </div>
             </body>
@@ -479,7 +493,13 @@ class PaymentController extends Controller
                     // Update Subscription to active
                     $subscription = $payment->subscription;
                     if ($subscription) {
-                        $days = $subscription->type === 'daily' ? 1 : 30;
+                        if ($subscription->type === 'daily') {
+                            $days = 1;
+                        } elseif ($subscription->type === 'weekly') {
+                            $days = 7;
+                        } else {
+                            $days = 30;
+                        }
                         $subscription->update([
                             'status' => 'active',
                             'expires_at' => now()->addDays($days),
