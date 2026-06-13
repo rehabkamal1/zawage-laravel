@@ -6,39 +6,52 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreProfileRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     */
     public function rules(): array
     {
-        return [
+        $user = $this->user();
+        $isMale = $user && $user->gender === 'male';
+
+        $rules = [
             'full_name'      => 'required|string|max:255',
             'phone'          => 'required|string|max:20',
             'dob'            => 'required|date',
             'governorate'    => 'required|string|max:100',
             'area'           => 'required|string|max:100',
-            'address'        => 'required|string',
             'education'      => 'required|string|max:255',
             'job'            => 'required|string|max:255',
-            'income'         => 'required|string|max:100',
-            'accommodation'  => 'required|string|max:100',
             'prayer'         => 'required|string|max:50',
-            'hijab'          => 'required|string|max:50',
-            'smoking'        => 'required|string|max:50',
+            // Optional / nullable for both
+            'address'        => 'nullable|string',
+            'income'         => 'nullable|string|max:100',
+            'accommodation'  => 'nullable|string|max:100',
+            'marital_status' => 'nullable|string|max:50',
+            'bio'            => 'nullable|string',
+            'weight'         => 'nullable|numeric',
+            'height'         => 'nullable|numeric',
+            'skin_tone'      => 'nullable|string|max:50',
         ];
+
+        if ($isMale) {
+            // Male: smoking required, hijab NOT applicable
+            $rules['smoking'] = 'required|string|max:50';
+        } else {
+            // Female: hijab required, smoking optional
+            $rules['hijab']          = 'required|string|max:50';
+            $rules['smoking']        = 'nullable|string|max:50';
+            // Guardian phone required for brides
+            $rules['guardian_name']  = 'nullable|string|max:255';
+            $rules['guardian_phone'] = 'required|string|max:20';
+            $rules['relation']       = 'nullable|string|max:100';
+        }
+
+        return $rules;
     }
 
-    /**
-     * Get custom error messages for validation failures.
-     */
     public function messages(): array
     {
         return [
@@ -47,14 +60,12 @@ class StoreProfileRequest extends FormRequest
             'dob.required'            => 'تاريخ الميلاد مطلوب',
             'governorate.required'    => 'المحافظة مطلوبة',
             'area.required'           => 'المنطقة مطلوبة',
-            'address.required'        => 'العنوان مطلوب',
             'education.required'      => 'المستوى التعليمي مطلوب',
             'job.required'            => 'المهنة مطلوبة',
-            'income.required'         => 'الدخل مطلوب',
-            'accommodation.required'  => 'نوع السكن مطلوب',
-            'prayer.required'         => 'نوع الصلاة مطلوب',
-            'hijab.required'          => 'حالة الحجاب مطلوبة',
+            'prayer.required'         => 'الالتزام بالصلاة مطلوب',
+            'hijab.required'          => 'نوع الحجاب مطلوب',
             'smoking.required'        => 'حالة التدخين مطلوبة',
+            'guardian_phone.required' => 'رقم ولي الأمر مطلوب للعروسة',
         ];
     }
 }

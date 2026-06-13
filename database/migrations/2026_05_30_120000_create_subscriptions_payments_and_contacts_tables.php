@@ -15,7 +15,7 @@ return new class extends Migration
         Schema::create('subscriptions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->enum('type', ['daily', 'monthly']);
+            $table->enum('type', ['daily', 'weekly', 'monthly']);
             $table->integer('views_allowed');
             $table->integer('views_used')->default(0);
             $table->timestamp('expires_at');

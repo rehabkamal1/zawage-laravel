@@ -139,7 +139,13 @@ class MatchingController extends Controller
 
         // Limit the results based on the subscription type for male users
         if ($user->gender === 'male' && $activeSub) {
-            $limit = $activeSub->type === 'daily' ? 20 : 50;
+            if ($activeSub->type === 'daily') {
+                $limit = 10;
+            } elseif ($activeSub->type === 'weekly') {
+                $limit = 20;
+            } else {
+                $limit = 50;
+            }
             $matches = $matches->take($limit)->values();
         }
 
