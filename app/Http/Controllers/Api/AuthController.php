@@ -168,6 +168,15 @@ class AuthController extends Controller
      */
     public function me(Request $request)
     {
-        return response()->json(['user' => $request->user()->load('profile')]);
+        $user = $request->user()->load('profile');
+        $activeSub = $user->subscriptions()
+            ->where('status', 'active')
+            ->where('expires_at', '>', now())
+            ->first();
+
+        $userData = $user->toArray();
+        $userData['active_subscription'] = $activeSub;
+
+        return response()->json(['user' => $userData]);
     }
 }
