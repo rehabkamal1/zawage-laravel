@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Subscription;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class AdminController extends Controller
 {
@@ -71,8 +73,12 @@ class AdminController extends Controller
 
     /**
      * Get platform statistics.
+     * Query params:
+     *   period = 'all' | 'month' | 'custom'
+     *   year   = (required when period=custom)
+     *   month  = (required when period=custom, 1-12)
      */
-    public function stats()
+    public function stats(Request $request)
     {
         $totalUsers = User::where('role', 'user')->count();
         $males      = User::where('role', 'user')->where('gender', 'male')->count();
@@ -81,10 +87,11 @@ class AdminController extends Controller
 
         $pendingReports = \App\Models\Report::where('status', 'pending')->count();
 
+        // --- Last 5 registered forms ---
         $recentUsers = User::where('role', 'user')
             ->with('profile')
             ->latest()
-            ->take(10)
+            ->take(5)
             ->get()
             ->map(function ($u) {
                 return [
@@ -98,13 +105,38 @@ class AdminController extends Controller
                 ];
             });
 
+        // --- Subscription counts per plan type with date filter ---
+        $period = $request->query('period', 'month'); // 'all' | 'month' | 'custom'
+        $subQuery = Subscription::query();
+
+        if ($period === 'month') {
+            $subQuery->whereYear('created_at', Carbon::now()->year)
+                     ->whereMonth('created_at', Carbon::now()->month);
+        } elseif ($period === 'custom') {
+            $year  = (int) $request->query('year', Carbon::now()->year);
+            $month = (int) $request->query('month', Carbon::now()->month);
+            $subQuery->whereYear('created_at', $year)
+                     ->whereMonth('created_at', $month);
+        }
+        // 'all' => no date filter
+
+        $dailySubs   = (clone $subQuery)->where('type', 'daily')->count();
+        $weeklySubs  = (clone $subQuery)->where('type', 'weekly')->count();
+        $monthlySubs = (clone $subQuery)->where('type', 'monthly')->count();
+
         return response()->json([
-            'total_users'     => $totalUsers,
-            'males'           => $males,
-            'females'         => $females,
-            'banned_users'    => $banned,
-            'pending_reports' => $pendingReports,
-            'recent_users'    => $recentUsers,
+            'total_users'      => $totalUsers,
+            'males'            => $males,
+            'females'          => $females,
+            'banned_users'     => $banned,
+            'pending_reports'  => $pendingReports,
+            'recent_users'     => $recentUsers,
+            'subscriptions'    => [
+                'daily'   => $dailySubs,
+                'weekly'  => $weeklySubs,
+                'monthly' => $monthlySubs,
+            ],
+            'period'           => $period,
         ]);
     }
 }
