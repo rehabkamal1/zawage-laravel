@@ -18,6 +18,8 @@ class ReportController extends Controller
             'reason' => 'required|string|max:1000',
         ]);
 
+        
+
         $report = Report::create([
             'reporter_id' => $request->user()->id,
             'reported_id' => $request->reported_id,
