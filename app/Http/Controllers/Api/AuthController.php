@@ -70,12 +70,27 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
+            'phone' => 'temp_' . uniqid(),
             'gender' => $request->gender,
             'password' => $request->password,
             'role' => 'user',
         ]);
 
-        $user->profile()->create();
+        $user->profile()->create([
+            'full_name'     => $user->name,
+            'phone'         => '',
+            'dob'           => '1990-01-01',
+            'governorate'   => '',
+            'area'          => '',
+            'address'       => '',
+            'education'     => '',
+            'job'           => '',
+            'income'        => '',
+            'accommodation' => '',
+            'prayer'        => '',
+            'hijab'         => '',
+            'smoking'       => '',
+        ]);
 
         // Send initial OTP to email
         $this->sendOTP(new Request(['email' => $user->email]));

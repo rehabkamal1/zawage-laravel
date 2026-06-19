@@ -231,12 +231,13 @@ class PaymentController extends Controller
      */
     public function simulatePaymentPage($subscriptionId)
     {
-        if (app()->environment('production')) {
-            abort(403, 'غير مسموح بوضع المحاكاة في البيئة الإنتاجية.');
-        }
-
         $subscription = Subscription::findOrFail($subscriptionId);
         $payment = Payment::where('subscription_id', $subscriptionId)->firstOrFail();
+
+        if (app()->environment('production') && !str_starts_with($payment->paymob_order_id ?? '', 'MOCK_ORDER')) {
+            abort(403, 'غير مسموح بوضع المحاكاة في البيئة الإنتاجية للعمليات الحقيقية.');
+        }
+
         $user = $subscription->user;
 
         $activationUrl = url("/api/subscriptions/{$subscriptionId}/simulate-payment");
@@ -332,12 +333,12 @@ class PaymentController extends Controller
      */
     public function simulatePayment(Request $request, $subscriptionId)
     {
-        if (app()->environment('production')) {
-            abort(403, 'غير مسموح بوضع المحاكاة في البيئة الإنتاجية.');
-        }
-
         $subscription = Subscription::findOrFail($subscriptionId);
         $payment = Payment::where('subscription_id', $subscriptionId)->firstOrFail();
+
+        if (app()->environment('production') && !str_starts_with($payment->paymob_order_id ?? '', 'MOCK_ORDER')) {
+            abort(403, 'غير مسموح بوضع المحاكاة في البيئة الإنتاجية للعمليات الحقيقية.');
+        }
 
         // Update Payment to completed
         $payment->update([
