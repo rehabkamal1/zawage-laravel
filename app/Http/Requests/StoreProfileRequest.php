@@ -18,7 +18,7 @@ class StoreProfileRequest extends FormRequest
 
         $rules = [
             'full_name'      => 'required|string|max:255',
-            'phone'          => 'required|string|max:20',
+            'phone'          => 'required|string|max:20|unique:users,phone,' . ($user ? $user->id : ''),
             'dob'            => 'required|date',
             'governorate'    => 'required|string|max:100',
             'area'           => 'required|string|max:100',
@@ -57,6 +57,7 @@ class StoreProfileRequest extends FormRequest
         return [
             'full_name.required'      => 'الاسم الكامل مطلوب',
             'phone.required'          => 'رقم الهاتف مطلوب',
+            'phone.unique'            => 'رقم الهاتف مستخدم بالفعل، يرجى إدخال رقم آخر',
             'dob.required'            => 'تاريخ الميلاد مطلوب',
             'governorate.required'    => 'المحافظة مطلوبة',
             'area.required'           => 'المنطقة مطلوبة',

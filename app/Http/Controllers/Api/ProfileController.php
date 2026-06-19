@@ -17,7 +17,24 @@ class ProfileController extends Controller
             return response()->json(['message' => 'يجب تسجيل الدخول أولاً'], 401);
         }
         return response()->json([
-            'profile' => $request->user()->profile()->firstOrCreate(['user_id' => $request->user()->id]),
+            'profile' => $request->user()->profile()->firstOrCreate(
+                ['user_id' => $request->user()->id],
+                [
+                    'full_name'     => $request->user()->name,
+                    'phone'         => '',
+                    'dob'           => '1990-01-01',
+                    'governorate'   => '',
+                    'area'          => '',
+                    'address'       => '',
+                    'education'     => '',
+                    'job'           => '',
+                    'income'        => '',
+                    'accommodation' => '',
+                    'prayer'        => '',
+                    'hijab'         => '',
+                    'smoking'       => '',
+                ]
+            ),
         ]);
     }
 
@@ -48,12 +65,39 @@ class ProfileController extends Controller
         // We'll accept all fields sent since we have fillable set up
         $data = $request->all();
 
+        // Ensure all database NOT NULL columns have at least an empty string or default value if they are null/missing
+        $nonNullableDefaults = [
+            'full_name'     => $user->name,
+            'phone'         => $user->phone ?? '',
+            'dob'           => '1990-01-01',
+            'governorate'   => '',
+            'area'          => '',
+            'address'       => '',
+            'education'     => '',
+            'job'           => '',
+            'income'        => '',
+            'accommodation' => '',
+            'prayer'        => '',
+            'hijab'         => '',
+            'smoking'       => '',
+        ];
+        foreach ($nonNullableDefaults as $field => $defaultValue) {
+            if (!isset($data[$field]) || is_null($data[$field])) {
+                $data[$field] = $defaultValue;
+            }
+        }
+
         // Basic boolean conversion if sent as strings from frontend
         $booleans = ['has_children', 'move_other_gov', 'family_house', 'accept_polygamy'];
         foreach ($booleans as $bool) {
             if (isset($data[$bool])) {
                 $data[$bool] = $data[$bool] === 'yes' || $data[$bool] === true || $data[$bool] === 1;
             }
+        }
+
+        // Update user phone number in users table as well to keep them in sync
+        if (isset($data['phone'])) {
+            $user->update(['phone' => $data['phone']]);
         }
 
         $profile = $user->profile()->updateOrCreate(
