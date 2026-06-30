@@ -29,6 +29,14 @@ class MatchingController extends Controller
             ->where('gender', $oppositeGender)
             ->where('is_banned', false)
             ->where('role', 'user')
+            ->whereHas('profile', function($q) use ($oppositeGender) {
+                $q->whereNotNull('governorate')->where('governorate', '!=', '')
+                  ->whereNotNull('marital_status')->where('marital_status', '!=', '')
+                  ->whereNotNull('dob')->where('dob', '!=', '1990-01-01');
+                if ($oppositeGender === 'female') {
+                    $q->whereNotNull('guardian_phone')->where('guardian_phone', '!=', '');
+                }
+            })
             ->with('profile');
 
         // Apply Governorate Filter
@@ -261,6 +269,16 @@ class MatchingController extends Controller
             if (($reqPoly === 'لا' || $reqPoly === 'no') && !$acceptPoly) {
                 $matchedCriteria++;
             } elseif (($reqPoly === 'نعم' || $reqPoly === 'yes') && $acceptPoly) {
+                $matchedCriteria++;
+            }
+        }
+
+        // 11. Qaima status match
+        if ($myProfile->qaima_status && $theirProfile->qaima_status) {
+            $totalCriteria++;
+            $myQaima = mb_strtolower($myProfile->qaima_status);
+            $theirQaima = mb_strtolower($theirProfile->qaima_status);
+            if ($myQaima === $theirQaima || $myQaima === 'حسب الاتفاق' || $theirQaima === 'حسب الاتفاق') {
                 $matchedCriteria++;
             }
         }

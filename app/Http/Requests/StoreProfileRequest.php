@@ -34,6 +34,7 @@ class StoreProfileRequest extends FormRequest
             'weight'         => 'nullable|numeric',
             'height'         => 'nullable|numeric',
             'skin_tone'      => 'nullable|string|max:50',
+            'qaima_status'   => 'required|string|in:بالقائمة,بدون قائمة,حسب الاتفاق',
         ];
 
         if ($isMale) {
@@ -67,6 +68,8 @@ class StoreProfileRequest extends FormRequest
             'hijab.required'          => 'نوع الحجاب مطلوب',
             'smoking.required'        => 'حالة التدخين مطلوبة',
             'guardian_phone.required' => 'رقم ولي الأمر مطلوب للعروسة',
+            'qaima_status.required'   => 'اختيار تفاصيل القائمة مطلوب',
+            'qaima_status.in'         => 'اختيار القائمة غير صحيح',
         ];
     }
 }

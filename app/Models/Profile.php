@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\Model;
     'guardian_phone',
     'relation',
     'move_other_gov',
+    'qaima_status',
     'family_house',
     'dowry_status',
     'accept_polygamy',
