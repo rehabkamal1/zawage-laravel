@@ -19,7 +19,12 @@ class StoreProfileRequest extends FormRequest
         $rules = [
             'full_name'      => 'required|string|max:255',
             'phone'          => 'required|string|max:20|unique:users,phone,' . ($user ? $user->id : ''),
-            'dob'            => 'required|date',
+            'dob'            => [
+                'required',
+                'date',
+                'after_or_equal:1920-01-01',
+                'before_or_equal:' . now()->subYears(17)->format('Y-m-d'),
+            ],
             'governorate'    => 'required|string|max:100',
             'area'           => 'required|string|max:100',
             'education'      => 'required|string|max:255',
@@ -60,6 +65,9 @@ class StoreProfileRequest extends FormRequest
             'phone.required'          => 'رقم الهاتف مطلوب',
             'phone.unique'            => 'رقم الهاتف مستخدم بالفعل، يرجى إدخال رقم آخر',
             'dob.required'            => 'تاريخ الميلاد مطلوب',
+            'dob.date'                => 'تاريخ الميلاد غير صحيح',
+            'dob.after_or_equal'      => 'سنة الميلاد غير صحيحة',
+            'dob.before_or_equal'     => 'عذراً، يجب أن يكون العمر 17 سنة على الأقل (سنة الميلاد يجب أن تكون 2009 أو قبلها)',
             'governorate.required'    => 'المحافظة مطلوبة',
             'area.required'           => 'المنطقة مطلوبة',
             'education.required'      => 'المستوى التعليمي مطلوب',
