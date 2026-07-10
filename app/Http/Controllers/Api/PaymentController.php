@@ -520,4 +520,66 @@ class PaymentController extends Controller
 
         return response()->json(['status' => 'success'], 200);
     }
+
+    /**
+     * Submit manual Vodafone Cash transfer receipt.
+     */
+    public function manualTransfer(Request $request)
+    {
+        $request->validate([
+            'type' => 'required|string|in:daily,weekly,monthly',
+            'receipt_image' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'sender_wallet_number' => 'nullable|string|max:20',
+        ], [
+            'type.in' => 'نوع الاشتراك يجب أن يكون يومي (daily)، أسبوعي (weekly) أو شهري (monthly).',
+            'receipt_image.required' => 'يرجى إرفاق صورة إيصال التحويل.',
+            'receipt_image.image' => 'الملف المرفق يجب أن يكون صورة.',
+            'receipt_image.max' => 'حجم الصورة يجب ألا يتعدى 5 ميجابايت.',
+        ]);
+
+        $user = $request->user();
+        $type = $request->type;
+
+        if ($type === 'daily') {
+            $amount = 50.00;
+            $viewsAllowed = 3;
+        } elseif ($type === 'weekly') {
+            $amount = 100.00;
+            $viewsAllowed = 7;
+        } else {
+            $amount = 300.00;
+            $viewsAllowed = 25;
+        }
+
+        // Save receipt image
+        $path = $request->file('receipt_image')->store('receipts', 'public');
+
+        // Create pending subscription
+        $subscription = Subscription::create([
+            'user_id' => $user->id,
+            'type' => $type,
+            'views_allowed' => $viewsAllowed,
+            'views_used' => 0,
+            'expires_at' => now()->addDays(1),
+            'status' => 'pending',
+        ]);
+
+        // Create pending payment record
+        $payment = Payment::create([
+            'user_id' => $user->id,
+            'subscription_id' => $subscription->id,
+            'amount' => $amount,
+            'payment_method' => 'vodafone_cash_manual',
+            'status' => 'pending',
+            'receipt_image' => $path,
+            'sender_wallet_number' => $request->sender_wallet_number,
+            'rejection_reason' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'تم إرسال إيصال التحويل بنجاح وهو الآن قيد المراجعة من الإدارة.',
+            'subscription' => $subscription,
+            'payment' => $payment,
+        ], 201);
+    }
 }

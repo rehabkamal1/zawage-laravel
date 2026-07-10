@@ -14,6 +14,9 @@ use Illuminate\Database\Eloquent\Model;
     'status',
     'paymob_order_id',
     'paymob_transaction_id',
+    'receipt_image',
+    'sender_wallet_number',
+    'rejection_reason',
 ])]
 class Payment extends Model
 {

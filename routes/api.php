@@ -37,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Subscriptions/Payment initiation routes
     Route::post('/subscriptions/subscribe', [PaymentController::class, 'subscribe']);
+    Route::post('/subscriptions/manual-transfer', [PaymentController::class, 'manualTransfer']);
 
     // Favorite routes
     Route::get('/favorites', [FavoriteController::class, 'index']);
@@ -55,5 +56,10 @@ Route::middleware('auth:sanctum')->group(function () {
         
         Route::get('/reports', [ReportController::class, 'index']);
         Route::put('/reports/{id}', [ReportController::class, 'update']);
+
+        // Admin Manual Payments routes
+        Route::get('/payments', [AdminController::class, 'indexPayments']);
+        Route::post('/payments/{id}/approve', [AdminController::class, 'approvePayment']);
+        Route::post('/payments/{id}/reject', [AdminController::class, 'rejectPayment']);
     });
 });
