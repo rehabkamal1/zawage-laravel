@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Subscription;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -137,6 +138,111 @@ class AdminController extends Controller
                 'monthly' => $monthlySubs,
             ],
             'period'           => $period,
+        ]);
+    }
+
+    /**
+     * List all manual payments/receipts for admin review.
+     */
+    public function indexPayments(Request $request)
+    {
+        $status = $request->query('status');
+
+        $query = Payment::with(['user.profile', 'subscription'])->latest();
+
+        if ($status && in_array($status, ['pending', 'completed', 'failed'])) {
+            $query->where('status', $status);
+        }
+
+        return response()->json([
+            'payments' => $query->get(),
+        ]);
+    }
+
+    /**
+     * Approve manual payment and activate user subscription.
+     */
+    public function approvePayment($id)
+    {
+        $payment = Payment::with('subscription')->findOrFail($id);
+
+        if ($payment->status === 'completed') {
+            return response()->json(['message' => 'هذا الطلب مفعل بالفعل.'], 400);
+        }
+
+        $subscription = $payment->subscription;
+
+        if (!$subscription) {
+            return response()->json(['message' => 'لم يتم العثور على اشتراك مرتبط بهذا الدفع.'], 404);
+        }
+
+        // Determine validity duration
+        if ($subscription->type === 'daily') {
+            $days = 1;
+        } elseif ($subscription->type === 'weekly') {
+            $days = 7;
+        } else {
+            $days = 30;
+        }
+
+        $payment->update([
+            'status' => 'completed',
+            'rejection_reason' => null,
+        ]);
+
+        // Check for any existing active subscription with unused views and stack them
+        $existingSub = \App\Models\Subscription::where('user_id', $payment->user_id)
+            ->where('id', '!=', $subscription->id)
+            ->where('status', 'active')
+            ->where('expires_at', '>', now())
+            ->first();
+
+        $remainingViews = 0;
+        if ($existingSub) {
+            $remainingViews = max(0, $existingSub->views_allowed - $existingSub->views_used);
+            $existingSub->update(['status' => 'expired']);
+        }
+
+        $subscription->update([
+            'status' => 'active',
+            'views_allowed' => $subscription->views_allowed + $remainingViews,
+            'expires_at' => now()->addDays($days),
+        ]);
+
+        return response()->json([
+            'message' => 'تمت الموافقة على الدفع وتفعيل الاشتراك بنجاح.',
+            'payment' => $payment,
+            'subscription' => $subscription,
+        ]);
+    }
+
+    /**
+     * Reject manual payment with rejection reason.
+     */
+    public function rejectPayment(Request $request, $id)
+    {
+        $request->validate([
+            'rejection_reason' => 'required|string|max:1000',
+        ], [
+            'rejection_reason.required' => 'يرجى كتابة سبب رفض الإيصال.',
+        ]);
+
+        $payment = Payment::with('subscription')->findOrFail($id);
+
+        $payment->update([
+            'status' => 'failed',
+            'rejection_reason' => $request->rejection_reason,
+        ]);
+
+        if ($payment->subscription) {
+            $payment->subscription->update([
+                'status' => 'expired',
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'تم رفض الإيصال وتحديث الحالة.',
+            'payment' => $payment,
         ]);
     }
 }
