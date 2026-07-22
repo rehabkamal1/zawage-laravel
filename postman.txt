@@ -43,7 +43,7 @@
    {
      "email": "fatma@example.com",
      "password": "fatma1234",
-     "code": "123456"
+     "code": "123456" // optional for normal login, required only after registration
    }
 ---------------------------------------------------
 
@@ -148,7 +148,7 @@
    {
      "email": "ahmed@example.com",
      "password": "ahmed1234",
-     "code": "123456"
+     "code": "123456" // optional for normal login, required only after registration
    }
 ---------------------------------------------------
 

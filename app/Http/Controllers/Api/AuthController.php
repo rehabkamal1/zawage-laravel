@@ -174,7 +174,7 @@ class AuthController extends Controller
 
         $request->validate([
             'password' => 'required|string',
-            'code' => 'required|string',
+            'code' => 'nullable|string',
         ]);
 
         if ($authMethod === 'phone') {
@@ -188,17 +188,19 @@ class AuthController extends Controller
             return response()->json(['message' => 'كلمة المرور غير صحيحة.'], 422);
         }
 
-        // Check OTP
-        $otp = OtpCode::where('email', $identifier)
-            ->where('code', $request->code)
-            ->where('expires_at', '>', Carbon::now())
-            ->first();
+        // Check OTP only if code is provided (for initial registration verification)
+        if ($request->filled('code')) {
+            $otp = OtpCode::where('email', $identifier)
+                ->where('code', $request->code)
+                ->where('expires_at', '>', Carbon::now())
+                ->first();
 
-        if (!$otp) {
-            return response()->json(['message' => 'رمز التحقق غير صحيح أو انتهت صلاحيته.'], 422);
+            if (!$otp) {
+                return response()->json(['message' => 'رمز التحقق غير صحيح أو انتهت صلاحيته.'], 422);
+            }
+
+            $otp->delete();
         }
-
-        $otp->delete();
         
         if ($user->is_banned) {
             return response()->json(['message' => 'هذا الحساب محظور من قبل الإدارة.'], 403);
