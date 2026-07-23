@@ -60,30 +60,29 @@ class AuthController extends Controller
             }
         }
 
-        $code = rand(100000, 999999);
-        $expiresAt = Carbon::now()->addMinutes(10);
+        if ($authMethod === 'email') {
+            $code = rand(100000, 999999);
+            $expiresAt = Carbon::now()->addMinutes(10);
 
-        OtpCode::where('email', $identifier)->delete();
+            OtpCode::where('email', $identifier)->delete();
 
-        OtpCode::create([
-            'email' => $identifier,
-            'code' => $code,
-            'expires_at' => $expiresAt,
-        ]);
-
-        if ($authMethod === 'phone') {
-            $this->sendWhatsAppOtp($identifier, $code);
-            return response()->json([
-                'message' => 'تم إرسال كود التحقق عبر الواتساب بنجاح.',
-                'identifier' => $identifier,
+            OtpCode::create([
+                'email' => $identifier,
+                'code' => $code,
+                'expires_at' => $expiresAt,
             ]);
-        } else {
+
             Mail::to($identifier)->send(new OTPMail($code));
             return response()->json([
                 'message' => 'تم إرسال رمز التحقق إلى بريدك الإلكتروني بنجاح.',
                 'identifier' => $identifier,
             ]);
         }
+
+        return response()->json([
+            'message' => 'تم إيقاف الـ OTP لرقم الهاتف مؤقتا.',
+            'identifier' => $identifier,
+        ]);
     }
 
     /**
@@ -141,19 +140,17 @@ class AuthController extends Controller
 
         $identifier = $authMethod === 'phone' ? $user->phone : $user->email;
 
-        $code = rand(100000, 999999);
-        $expiresAt = Carbon::now()->addMinutes(10);
+        if ($authMethod === 'email') {
+            $code = rand(100000, 999999);
+            $expiresAt = Carbon::now()->addMinutes(10);
 
-        OtpCode::where('email', $identifier)->delete();
-        OtpCode::create([
-            'email' => $identifier,
-            'code' => $code,
-            'expires_at' => $expiresAt,
-        ]);
+            OtpCode::where('email', $identifier)->delete();
+            OtpCode::create([
+                'email' => $identifier,
+                'code' => $code,
+                'expires_at' => $expiresAt,
+            ]);
 
-        if ($authMethod === 'phone') {
-            $this->sendWhatsAppOtp($identifier, $code);
-        } else {
             Mail::to($identifier)->send(new OTPMail($code));
         }
 
@@ -178,9 +175,15 @@ class AuthController extends Controller
         ]);
 
         if ($authMethod === 'phone') {
-            $user = User::where('phone', $identifier)->firstOrFail();
+            $user = User::where('phone', $identifier)->first();
+            if (!$user) {
+                return response()->json(['message' => 'رقم الهاتف غير مسجل.'], 404);
+            }
         } else {
-            $user = User::where('email', $identifier)->firstOrFail();
+            $user = User::where('email', $identifier)->first();
+            if (!$user) {
+                return response()->json(['message' => 'البريد الإلكتروني غير مسجل.'], 404);
+            }
         }
 
         // Check Password
