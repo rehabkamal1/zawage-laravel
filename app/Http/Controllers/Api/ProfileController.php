@@ -49,6 +49,7 @@ class ProfileController extends Controller
         $user = $request->user();
         
         // Enforce subscription for male users before filling/updating the profile/form
+        /* [TEMPORARILY COMMENTED - SUBSCRIPTION DISABLED]
         if ($user->gender === 'male') {
             $hasActiveSubscription = $user->subscriptions()
                 ->where('status', 'active')
@@ -61,6 +62,7 @@ class ProfileController extends Controller
                 ], 403);
             }
         }
+        */
 
         // We'll accept all fields sent since we have fillable set up
         $data = $request->all();

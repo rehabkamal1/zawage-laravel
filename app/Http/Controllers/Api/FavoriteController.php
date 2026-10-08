@@ -15,6 +15,21 @@ class FavoriteController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+
+        // إلزام العريس بملء استمارته أولاً للوصول للمفضلات
+        $myProfile = $user->profile;
+        $hasFilledForm = $myProfile 
+            && !empty(trim($myProfile->governorate ?? '')) 
+            && !empty(trim($myProfile->marital_status ?? ''));
+
+        if ($user->gender === 'male' && !$hasFilledForm) {
+            return response()->json([
+                'message' => 'عذراً، يجب عليك ملء استمارتك أولاً للوصول للمفضلات.',
+                'requires_form' => true,
+                'favorites' => [],
+            ], 403);
+        }
+
         $favoritesQuery = Favorite::where('user_id', $user->id)
             ->with('favoriteUser.profile')
             ->get()
@@ -22,6 +37,7 @@ class FavoriteController extends Controller
 
         $activeSub = null;
         $unlockedUserIds = [];
+        /* [TEMPORARILY COMMENTED - SUBSCRIPTION DISABLED]
         if ($user->gender === 'male') {
             $activeSub = $user->subscriptions()
                 ->where('status', 'active')
@@ -35,11 +51,13 @@ class FavoriteController extends Controller
                     ->toArray();
             }
         }
+        */
 
         $favorites = $favoritesQuery->map(function ($favUser) use ($user, $unlockedUserIds) {
             if (!$favUser) return null;
             $favUserData = $favUser->toArray();
             
+            /* [TEMPORARILY COMMENTED - SUBSCRIPTION DISABLED]
             if ($user->gender === 'male') {
                 $isUnlocked = in_array($favUser->id, $unlockedUserIds);
                 $favUserData['is_unlocked'] = $isUnlocked;
@@ -62,6 +80,26 @@ class FavoriteController extends Controller
                 }
             } else {
                 $favUserData['is_unlocked'] = true;
+                $phone = $favUser->phone ?? '';
+                $favUserData['phone'] = $phone;
+                $favUserData['whatsapp_link'] = $phone
+                    ? 'https://wa.me/' . preg_replace('/\D/', '', $phone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
+                    : null;
+            }
+            */
+
+            // Free access for all users in favorites
+            $favUserData['is_unlocked'] = true;
+            if ($user->gender === 'male') {
+                $guardianPhone = $favUser->profile->guardian_phone ?? '';
+                $favUserData['phone'] = $guardianPhone;
+                if (isset($favUserData['profile'])) {
+                    $favUserData['profile']['phone'] = $guardianPhone;
+                }
+                $favUserData['whatsapp_link'] = $guardianPhone
+                    ? 'https://wa.me/' . preg_replace('/\D/', '', $guardianPhone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
+                    : null;
+            } else {
                 $phone = $favUser->phone ?? '';
                 $favUserData['phone'] = $phone;
                 $favUserData['whatsapp_link'] = $phone

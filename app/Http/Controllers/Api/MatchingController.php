@@ -23,6 +23,20 @@ class MatchingController extends Controller
             ]);
         }
 
+        // إلزام العريس بملء استمارته أولاً لرؤية العرايس
+        $myProfile = $user->profile;
+        $hasFilledForm = $myProfile 
+            && !empty(trim($myProfile->governorate ?? '')) 
+            && !empty(trim($myProfile->marital_status ?? ''));
+
+        if ($user->gender === 'male' && !$hasFilledForm) {
+            return response()->json([
+                'message' => 'عذراً، يجب عليك ملء استمارتك أولاً لتتمكن من رؤية العرايس.',
+                'requires_form' => true,
+                'matches' => [],
+            ], 403);
+        }
+
         $oppositeGender = $user->gender === 'male' ? 'female' : 'male';
 
         $query = User::where('id', '!=', $user->id)
@@ -78,6 +92,7 @@ class MatchingController extends Controller
         // Find active subscription and unlocked user IDs if user is male
         $activeSub = null;
         $unlockedUserIds = [];
+        /* [TEMPORARILY COMMENTED - SUBSCRIPTION DISABLED]
         if ($user->gender === 'male') {
             $activeSub = $user->subscriptions()
                 ->where('status', 'active')
@@ -97,6 +112,7 @@ class MatchingController extends Controller
                 ->pluck('contacted_user_id')
                 ->toArray();
         }
+        */
 
         // Calculate compatibility for each match
         $matches = $potentialMatches->map(function ($match) use ($myProfile, $user, $unlockedUserIds) {
@@ -107,6 +123,7 @@ class MatchingController extends Controller
             $matchData['match_percentage'] = $percentage;
             $matchData['compatibility_score'] = $percentage; // Return compatibility_score in results to match frontend
 
+            /* [TEMPORARILY COMMENTED - SUBSCRIPTION DISABLED]
             if ($user->gender === 'male') {
                 $isUnlocked = in_array($match->id, $unlockedUserIds);
                 $matchData['is_unlocked'] = $isUnlocked;
@@ -138,6 +155,26 @@ class MatchingController extends Controller
                     ? 'https://wa.me/' . preg_replace('/\D/', '', $phone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
                     : null;
             }
+            */
+
+            // Free access for all users without subscription:
+            $matchData['is_unlocked'] = true;
+            if ($user->gender === 'male') {
+                $guardianPhone = $theirProfile->guardian_phone ?? '';
+                $matchData['phone'] = $guardianPhone;
+                if (isset($matchData['profile'])) {
+                    $matchData['profile']['phone'] = $guardianPhone;
+                }
+                $matchData['whatsapp_link'] = $guardianPhone
+                    ? 'https://wa.me/' . preg_replace('/\D/', '', $guardianPhone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
+                    : null;
+            } else {
+                $phone = $match->phone ?? '';
+                $matchData['phone'] = $phone;
+                $matchData['whatsapp_link'] = $phone
+                    ? 'https://wa.me/' . preg_replace('/\D/', '', $phone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
+                    : null;
+            }
 
             return $matchData;
         });
@@ -145,6 +182,7 @@ class MatchingController extends Controller
         // Sort by match_percentage descending (highest compatibility score first)
         $matches = $matches->sortByDesc('match_percentage')->values();
 
+        /* [TEMPORARILY COMMENTED - SUBSCRIPTION DISABLED]
         // Limit the results based on the subscription type for male users
         if ($user->gender === 'male' && $activeSub) {
             if ($activeSub->type === 'daily') {
@@ -156,6 +194,7 @@ class MatchingController extends Controller
             }
             $matches = $matches->take($limit)->values();
         }
+        */
 
         return response()->json([
             'matches' => $matches,
@@ -313,6 +352,7 @@ class MatchingController extends Controller
         }
 
         // Check if the viewer is male
+        /* [TEMPORARILY COMMENTED - SUBSCRIPTION DISABLED]
         if ($user->gender === 'male') {
             // Find active subscription
             $activeSub = $user->subscriptions()
@@ -393,5 +433,32 @@ class MatchingController extends Controller
                 'views_allowed' => -1, // Unlimited
             ]);
         }
+        */
+
+        // Free contact for all without subscription
+        $myProfile = $user->profile;
+        $hasFilledForm = $myProfile 
+            && !empty(trim($myProfile->governorate ?? '')) 
+            && !empty(trim($myProfile->marital_status ?? ''));
+
+        if ($user->gender === 'male' && !$hasFilledForm) {
+            return response()->json([
+                'message' => 'عذراً، يجب عليك ملء استمارتك أولاً لتتمكن من التواصل مع العروس.',
+                'requires_form' => true,
+            ], 403);
+        }
+
+        $guardianPhone = $theirProfile->guardian_phone ?? '';
+        $phone = $user->gender === 'male' ? $guardianPhone : ($targetUser->phone ?? '');
+        return response()->json([
+            'message' => 'تفاصيل التواصل للملف الشخصي.',
+            'is_unlocked' => true,
+            'phone' => $phone,
+            'whatsapp_link' => $phone
+                ? 'https://wa.me/' . preg_replace('/\D/', '', $phone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
+                : null,
+            'views_used' => 0,
+            'views_allowed' => -1, // Unlimited
+        ]);
     }
 }
