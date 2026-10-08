@@ -182,22 +182,31 @@ class MatchingController extends Controller
         // Sort by match_percentage descending (highest compatibility score first)
         $matches = $matches->sortByDesc('match_percentage')->values();
 
-        /* [TEMPORARILY COMMENTED - SUBSCRIPTION DISABLED]
-        // Limit the results based on the subscription type for male users
-        if ($user->gender === 'male' && $activeSub) {
-            if ($activeSub->type === 'daily') {
-                $limit = 10;
-            } elseif ($activeSub->type === 'weekly') {
-                $limit = 20;
+        // تحديد 3 عرايس فقط في اليوم للعريس
+        if ($user->gender === 'male') {
+            $totalMatches = $matches->count();
+            if ($totalMatches > 3) {
+                // تدوير الـ 3 عرايس يومياً بناءً على تاريخ اليوم ومعرف المستخدم
+                // 1) تبقى الـ 3 عرايس ثابتة طوال نفس اليوم للعريس
+                // 2) تتغير وتعرض 3 عرايس جديدة كل يوم عند منتصف الليل
+                $dayIndex = (int) floor(now()->startOfDay()->timestamp / 86400);
+                $seed = ($dayIndex + $user->id);
+                $offset = ($seed * 3) % $totalMatches;
+
+                $dailySlice = $matches->slice($offset, 3);
+                if ($dailySlice->count() < 3) {
+                    $dailySlice = $dailySlice->merge($matches->slice(0, 3 - $dailySlice->count()));
+                }
+                $matches = $dailySlice->values();
             } else {
-                $limit = 50;
+                $matches = $matches->values();
             }
-            $matches = $matches->take($limit)->values();
         }
-        */
 
         return response()->json([
             'matches' => $matches,
+            'daily_limit' => 3,
+            'total_available_today' => $matches->count(),
         ]);
     }
 
