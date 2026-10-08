@@ -15,6 +15,21 @@ class FavoriteController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+
+        // إلزام العريس بملء استمارته أولاً للوصول للمفضلات
+        $myProfile = $user->profile;
+        $hasFilledForm = $myProfile 
+            && !empty(trim($myProfile->governorate ?? '')) 
+            && !empty(trim($myProfile->marital_status ?? ''));
+
+        if ($user->gender === 'male' && !$hasFilledForm) {
+            return response()->json([
+                'message' => 'عذراً، يجب عليك ملء استمارتك أولاً للوصول للمفضلات.',
+                'requires_form' => true,
+                'favorites' => [],
+            ], 403);
+        }
+
         $favoritesQuery = Favorite::where('user_id', $user->id)
             ->with('favoriteUser.profile')
             ->get()

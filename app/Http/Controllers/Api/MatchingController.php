@@ -23,6 +23,20 @@ class MatchingController extends Controller
             ]);
         }
 
+        // إلزام العريس بملء استمارته أولاً لرؤية العرايس
+        $myProfile = $user->profile;
+        $hasFilledForm = $myProfile 
+            && !empty(trim($myProfile->governorate ?? '')) 
+            && !empty(trim($myProfile->marital_status ?? ''));
+
+        if ($user->gender === 'male' && !$hasFilledForm) {
+            return response()->json([
+                'message' => 'عذراً، يجب عليك ملء استمارتك أولاً لتتمكن من رؤية العرايس.',
+                'requires_form' => true,
+                'matches' => [],
+            ], 403);
+        }
+
         $oppositeGender = $user->gender === 'male' ? 'female' : 'male';
 
         $query = User::where('id', '!=', $user->id)
@@ -422,6 +436,18 @@ class MatchingController extends Controller
         */
 
         // Free contact for all without subscription
+        $myProfile = $user->profile;
+        $hasFilledForm = $myProfile 
+            && !empty(trim($myProfile->governorate ?? '')) 
+            && !empty(trim($myProfile->marital_status ?? ''));
+
+        if ($user->gender === 'male' && !$hasFilledForm) {
+            return response()->json([
+                'message' => 'عذراً، يجب عليك ملء استمارتك أولاً لتتمكن من التواصل مع العروس.',
+                'requires_form' => true,
+            ], 403);
+        }
+
         $guardianPhone = $theirProfile->guardian_phone ?? '';
         $phone = $user->gender === 'male' ? $guardianPhone : ($targetUser->phone ?? '');
         return response()->json([
