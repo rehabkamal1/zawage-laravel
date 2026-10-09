@@ -12,12 +12,23 @@ use Carbon\Carbon;
 class AdminController extends Controller
 {
     /**
-     * List all users with profiles.
+     * List all users with profiles and subscriptions.
      */
     public function indexUsers()
     {
+        $users = User::with(['profile', 'subscriptions'])->get()->map(function ($u) {
+            $activeSub = $u->subscriptions ? $u->subscriptions->where('status', 'active')->first() : null;
+            $u->active_subscription = $activeSub ? [
+                'type' => $activeSub->type,
+                'expires_at' => $activeSub->expires_at,
+                'views_allowed' => $activeSub->views_allowed,
+                'views_used' => $activeSub->views_used,
+            ] : null;
+            return $u;
+        });
+
         return response()->json([
-            'users' => User::with('profile')->get(),
+            'users' => $users,
         ]);
     }
 
@@ -149,11 +160,18 @@ class AdminController extends Controller
     public function indexPayments(Request $request)
     {
         $status = $request->query('status');
+        $plan = $request->query('plan');
 
         $query = Payment::with(['user.profile', 'subscription'])->latest();
 
         if ($status && in_array($status, ['pending', 'completed', 'failed'])) {
             $query->where('status', $status);
+        }
+
+        if ($plan && in_array($plan, ['daily', 'weekly', 'monthly'])) {
+            $query->whereHas('subscription', function($q) use ($plan) {
+                $q->where('type', $plan);
+            });
         }
 
         return response()->json([
