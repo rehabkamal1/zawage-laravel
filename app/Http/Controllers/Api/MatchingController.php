@@ -142,9 +142,30 @@ class MatchingController extends Controller
         // Sort by match_percentage descending (highest compatibility score first)
         $matches = $matches->sortByDesc('match_percentage')->values();
 
+        $formsLimit = null;
+        if ($user->gender === 'male') {
+            $activeSub = $user->subscriptions()
+                ->where('status', 'active')
+                ->where('expires_at', '>', now())
+                ->first();
+
+            $formsLimit = 10;
+            if ($activeSub) {
+                if ($activeSub->type === 'weekly') {
+                    $formsLimit = 20;
+                } elseif ($activeSub->type === 'monthly') {
+                    $formsLimit = 50;
+                } else {
+                    $formsLimit = 10;
+                }
+            }
+            $matches = $matches->take($formsLimit)->values();
+        }
+
         return response()->json([
             'matches' => $matches,
             'total_matches' => $matches->count(),
+            'forms_limit' => $formsLimit,
             'free_views_used' => $freeContactsCount ?? 0,
             'free_views_allowed' => 3,
             'free_views_remaining' => max(0, 3 - ($freeContactsCount ?? 0)),
