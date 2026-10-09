@@ -89,30 +89,14 @@ class MatchingController extends Controller
 
         $myProfile = $user->profile;
 
-        // Find active subscription and unlocked user IDs if user is male
-        $activeSub = null;
-        $unlockedUserIds = [];
-        /* [TEMPORARILY COMMENTED - SUBSCRIPTION DISABLED]
-        if ($user->gender === 'male') {
-            $activeSub = $user->subscriptions()
-                ->where('status', 'active')
-                ->where('expires_at', '>', now())
-                ->first();
+        // Find unlocked user IDs for authenticated user
+        $unlockedUserIds = \App\Models\Contact::where('user_id', $user->id)
+            ->pluck('contacted_user_id')
+            ->toArray();
 
-            if (!$activeSub) {
-                return response()->json([
-                    'message' => 'عذراً، يجب عليك تفعيل اشتراك نشط أولاً لتتمكن من رؤية الشركاء ونسب التوافق.',
-                    'requires_subscription' => true,
-                    'matches' => [],
-                ], 403);
-            }
-
-            $unlockedUserIds = \App\Models\Contact::where('user_id', $user->id)
-                ->where('subscription_id', $activeSub->id)
-                ->pluck('contacted_user_id')
-                ->toArray();
-        }
-        */
+        $freeContactsCount = \App\Models\Contact::where('user_id', $user->id)
+            ->whereNull('subscription_id')
+            ->count();
 
         // Calculate compatibility for each match
         $matches = $potentialMatches->map(function ($match) use ($myProfile, $user, $unlockedUserIds) {
@@ -121,15 +105,13 @@ class MatchingController extends Controller
 
             $matchData = $match->toArray();
             $matchData['match_percentage'] = $percentage;
-            $matchData['compatibility_score'] = $percentage; // Return compatibility_score in results to match frontend
+            $matchData['compatibility_score'] = $percentage;
 
-            /* [TEMPORARILY COMMENTED - SUBSCRIPTION DISABLED]
             if ($user->gender === 'male') {
                 $isUnlocked = in_array($match->id, $unlockedUserIds);
                 $matchData['is_unlocked'] = $isUnlocked;
 
                 if ($isUnlocked) {
-                    // Show guardian's phone number instead of bride's personal number
                     $guardianPhone = $theirProfile->guardian_phone ?? '';
                     $matchData['phone'] = $guardianPhone;
                     if (isset($matchData['profile'])) {
@@ -139,36 +121,14 @@ class MatchingController extends Controller
                         ? 'https://wa.me/' . preg_replace('/\D/', '', $guardianPhone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
                         : null;
                 } else {
-                    // Mask phone numbers until they unlock it
-                    $matchData['phone'] = 'مخفي - تواصل لفك القفل';
+                    $matchData['phone'] = 'مخفي - اضغط فك القفل للتواصل';
                     if (isset($matchData['profile'])) {
-                        $matchData['profile']['phone'] = 'مخفي - تواصل لفك القفل';
+                        $matchData['profile']['phone'] = 'مخفي - اضغط فك القفل للتواصل';
                     }
                     $matchData['whatsapp_link'] = null;
                 }
             } else {
-                // Females can see grooms' phone numbers directly
                 $matchData['is_unlocked'] = true;
-                $phone = $match->phone ?? '';
-                $matchData['phone'] = $phone;
-                $matchData['whatsapp_link'] = $phone
-                    ? 'https://wa.me/' . preg_replace('/\D/', '', $phone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
-                    : null;
-            }
-            */
-
-            // Free access for all users without subscription:
-            $matchData['is_unlocked'] = true;
-            if ($user->gender === 'male') {
-                $guardianPhone = $theirProfile->guardian_phone ?? '';
-                $matchData['phone'] = $guardianPhone;
-                if (isset($matchData['profile'])) {
-                    $matchData['profile']['phone'] = $guardianPhone;
-                }
-                $matchData['whatsapp_link'] = $guardianPhone
-                    ? 'https://wa.me/' . preg_replace('/\D/', '', $guardianPhone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
-                    : null;
-            } else {
                 $phone = $match->phone ?? '';
                 $matchData['phone'] = $phone;
                 $matchData['whatsapp_link'] = $phone
@@ -207,6 +167,9 @@ class MatchingController extends Controller
             'matches' => $matches,
             'daily_limit' => 3,
             'total_available_today' => $matches->count(),
+            'free_views_used' => $freeContactsCount ?? 0,
+            'free_views_allowed' => 3,
+            'free_views_remaining' => max(0, 3 - ($freeContactsCount ?? 0)),
         ]);
     }
 
@@ -360,30 +323,27 @@ class MatchingController extends Controller
             return response()->json(['message' => 'الملف الشخصي المستهدف لم يكمل استمارته بعد.'], 404);
         }
 
-        // Check if the viewer is male
-        /* [TEMPORARILY COMMENTED - SUBSCRIPTION DISABLED]
+        $myProfile = $user->profile;
+        $hasFilledForm = $myProfile 
+            && !empty(trim($myProfile->governorate ?? '')) 
+            && !empty(trim($myProfile->marital_status ?? ''));
+
+        if ($user->gender === 'male' && !$hasFilledForm) {
+            return response()->json([
+                'message' => 'عذراً، يجب عليك ملء استمارتك أولاً لتتمكن من التواصل مع العروس.',
+                'requires_form' => true,
+            ], 403);
+        }
+
         if ($user->gender === 'male') {
-            // Find active subscription
-            $activeSub = $user->subscriptions()
-                ->where('status', 'active')
-                ->where('expires_at', '>', now())
-                ->first();
-
-            if (!$activeSub) {
-                return response()->json([
-                    'message' => 'عذراً، يجب عليك تفعيل اشتراك نشط أولاً لتتمكن من فك قفل استمارات التواصل وتفاصيل الاتصال.',
-                    'requires_subscription' => true
-                ], 403);
-            }
-
-            // Check if already contacted/unlocked under this active subscription
+            // 1. Check if already contacted/unlocked
             $existingContact = \App\Models\Contact::where('user_id', $user->id)
                 ->where('contacted_user_id', $targetUser->id)
-                ->where('subscription_id', $activeSub->id)
                 ->first();
 
+            $guardianPhone = $theirProfile->guardian_phone ?? '';
+
             if ($existingContact) {
-                $guardianPhone = $theirProfile->guardian_phone ?? '';
                 return response()->json([
                     'message' => 'تم فك القفل مسبقاً لهذا الملف الشخصي.',
                     'is_unlocked' => true,
@@ -391,12 +351,58 @@ class MatchingController extends Controller
                     'whatsapp_link' => $guardianPhone
                         ? 'https://wa.me/' . preg_replace('/\D/', '', $guardianPhone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
                         : null,
-                    'views_used' => $activeSub->views_used,
-                    'views_allowed' => $activeSub->views_allowed,
+                    'views_used' => 0,
+                    'views_allowed' => 3,
                 ]);
             }
 
-            // Deduct 1 attempt: Check if views left
+            // 2. Count free contacts used by this user (where subscription_id is null)
+            $freeContactsCount = \App\Models\Contact::where('user_id', $user->id)
+                ->whereNull('subscription_id')
+                ->count();
+
+            // Find active subscription if any
+            $activeSub = $user->subscriptions()
+                ->where('status', 'active')
+                ->where('expires_at', '>', now())
+                ->first();
+
+            // Case A: User still has free attempts left (under 3)
+            if ($freeContactsCount < 3) {
+                \App\Models\Contact::create([
+                    'user_id' => $user->id,
+                    'contacted_user_id' => $targetUser->id,
+                    'subscription_id' => null,
+                ]);
+
+                $newUsed = $freeContactsCount + 1;
+                $remainingFree = 3 - $newUsed;
+
+                return response()->json([
+                    'message' => 'تم فك القفل بنجاح من رصيدك المجاني. المتبقي: ' . $remainingFree . ' من 3 محاولات مجانية.',
+                    'is_unlocked' => true,
+                    'is_free_attempt' => true,
+                    'phone' => $guardianPhone,
+                    'whatsapp_link' => $guardianPhone
+                        ? 'https://wa.me/' . preg_replace('/\D/', '', $guardianPhone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
+                        : null,
+                    'views_used' => $newUsed,
+                    'views_allowed' => 3,
+                    'remaining' => $remainingFree,
+                ]);
+            }
+
+            // Case B: Free attempts exhausted ($freeContactsCount >= 3)
+            if (!$activeSub) {
+                return response()->json([
+                    'message' => 'لقد استنفدت محاولاتك المجانية (3 استمارات). يرجى الاشتراك في إحدى باقاتنا (اليومية، الأسبوعية، أو الشهرية) للتمكن من فك قفل استمارات جديدة والتواصل.',
+                    'requires_subscription' => true,
+                    'free_attempts_used' => 3,
+                    'free_attempts_allowed' => 3,
+                ], 403);
+            }
+
+            // Check if subscription views exhausted
             if ($activeSub->views_used >= $activeSub->views_allowed) {
                 return response()->json([
                     'message' => 'عذراً، لقد استنفدت جميع محاولات التواصل المتاحة في باقتك الحالية. يرجى تجديد الاشتراك للتمكن من التواصل مع المزيد.',
@@ -406,7 +412,7 @@ class MatchingController extends Controller
                 ], 403);
             }
 
-            // Record contact click and increment used attempts
+            // Deduct from active subscription
             \App\Models\Contact::create([
                 'user_id' => $user->id,
                 'contacted_user_id' => $targetUser->id,
@@ -415,17 +421,17 @@ class MatchingController extends Controller
 
             $activeSub->increment('views_used');
 
-            $guardianPhone = $theirProfile->guardian_phone ?? '';
-
             return response()->json([
-                'message' => 'تم فك القفل وتواصلك مع العروس بنجاح. تم خصم محاولة واحدة.',
+                'message' => 'تم فك القفل بنجاح وخصم محاولة واحدة من رصيد باقتك.',
                 'is_unlocked' => true,
+                'is_free_attempt' => false,
                 'phone' => $guardianPhone,
                 'whatsapp_link' => $guardianPhone
                     ? 'https://wa.me/' . preg_replace('/\D/', '', $guardianPhone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
                     : null,
                 'views_used' => $activeSub->views_used,
                 'views_allowed' => $activeSub->views_allowed,
+                'remaining' => $activeSub->views_allowed - $activeSub->views_used,
             ]);
 
         } else {
@@ -442,32 +448,5 @@ class MatchingController extends Controller
                 'views_allowed' => -1, // Unlimited
             ]);
         }
-        */
-
-        // Free contact for all without subscription
-        $myProfile = $user->profile;
-        $hasFilledForm = $myProfile 
-            && !empty(trim($myProfile->governorate ?? '')) 
-            && !empty(trim($myProfile->marital_status ?? ''));
-
-        if ($user->gender === 'male' && !$hasFilledForm) {
-            return response()->json([
-                'message' => 'عذراً، يجب عليك ملء استمارتك أولاً لتتمكن من التواصل مع العروس.',
-                'requires_form' => true,
-            ], 403);
-        }
-
-        $guardianPhone = $theirProfile->guardian_phone ?? '';
-        $phone = $user->gender === 'male' ? $guardianPhone : ($targetUser->phone ?? '');
-        return response()->json([
-            'message' => 'تفاصيل التواصل للملف الشخصي.',
-            'is_unlocked' => true,
-            'phone' => $phone,
-            'whatsapp_link' => $phone
-                ? 'https://wa.me/' . preg_replace('/\D/', '', $phone) . '?text=' . urlencode('السلام عليكم، لقد رأيت ملفك الشخصي على منصة نصفي الآخر وأريد التواصل معك.')
-                : null,
-            'views_used' => 0,
-            'views_allowed' => -1, // Unlimited
-        ]);
     }
 }
