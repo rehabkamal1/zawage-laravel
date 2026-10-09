@@ -88,21 +88,23 @@ class AdminController extends Controller
 
         $pendingReports = \App\Models\Report::where('status', 'pending')->count();
 
-        // --- Last 5 registered forms ---
+        // --- Recent registered forms ---
         $recentUsers = User::where('role', 'user')
             ->with('profile')
             ->latest()
-            ->take(5)
+            ->take(10)
             ->get()
             ->map(function ($u) {
                 return [
                     'id'         => $u->id,
                     'name'       => $u->name,
                     'gender'     => $u->gender,
+                    'phone'      => $u->phone,
                     'email'      => $u->email,
                     'is_banned'  => $u->is_banned,
                     'created_at' => $u->created_at,
                     'nickname'   => $u->profile->nickname ?? null,
+                    'profile'    => $u->profile,
                 ];
             });
 
