@@ -219,9 +219,16 @@ class AuthController extends Controller
             ->latest()
             ->first();
 
+        $freeContactsCount = \App\Models\Contact::where('user_id', $user->id)
+            ->whereNull('subscription_id')
+            ->count();
+
         $userData = $user->load('profile')->toArray();
         $userData['active_subscription'] = $activeSub;
         $userData['latest_payment'] = $latestPayment;
+        $userData['free_views_used'] = $freeContactsCount;
+        $userData['free_views_allowed'] = 3;
+        $userData['free_views_remaining'] = max(0, 3 - $freeContactsCount);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
