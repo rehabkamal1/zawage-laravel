@@ -42,8 +42,12 @@ class AdminController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
-            'role' => 'sometimes|string|in:user,admin',
+            'role' => 'sometimes|string|in:user,admin,super_admin',
         ]);
+
+        if (isset($validated['role']) && $request->user()->role !== 'super_admin') {
+            return response()->json(['message' => 'فقط السوبر أدمن يمكنه تعديل الصلاحيات.'], 403);
+        }
 
         $user->update($validated);
 
@@ -54,12 +58,45 @@ class AdminController extends Controller
     }
 
     /**
+     * Change user role (Super Admin only).
+     */
+    public function changeRole(Request $request, $id)
+    {
+        $targetUser = User::findOrFail($id);
+
+        if ($targetUser->role === 'super_admin' && $targetUser->id !== $request->user()->id) {
+            return response()->json(['message' => 'لا يمكن تغيير دور سوبر أدمن آخر.'], 403);
+        }
+
+        $validated = $request->validate([
+            'role' => 'required|string|in:user,admin,super_admin',
+        ]);
+
+        $targetUser->role = $validated['role'];
+        $targetUser->save();
+
+        return response()->json([
+            'message' => 'تم تغيير صلاحية المستخدم بنجاح.',
+            'user' => $targetUser,
+        ]);
+    }
+
+    /**
      * Delete a user.
      */
-    public function deleteUser($id)
+    public function deleteUser(Request $request, $id)
     {
-        $user = User::findOrFail($id);
-        $user->delete();
+        $targetUser = User::findOrFail($id);
+
+        if ($targetUser->role === 'super_admin') {
+            return response()->json(['message' => 'لا يمكن حذف حساب السوبر أدمن.'], 403);
+        }
+
+        if ($targetUser->role === 'admin' && $request->user()->role !== 'super_admin') {
+            return response()->json(['message' => 'فقط السوبر أدمن يمكنه حذف المشرفين.'], 403);
+        }
+
+        $targetUser->delete();
 
         return response()->json([
             'message' => 'User deleted successfully.',
@@ -69,17 +106,26 @@ class AdminController extends Controller
     /**
      * Toggle ban status for a user.
      */
-    public function toggleBan($id)
+    public function toggleBan(Request $request, $id)
     {
-        $user = User::findOrFail($id);
-        $user->is_banned = !$user->is_banned;
-        $user->save();
+        $targetUser = User::findOrFail($id);
 
-        $status = $user->is_banned ? 'banned' : 'unbanned';
+        if ($targetUser->role === 'super_admin') {
+            return response()->json(['message' => 'لا يمكن حظر حساب السوبر أدمن.'], 403);
+        }
+
+        if ($targetUser->role === 'admin' && $request->user()->role !== 'super_admin') {
+            return response()->json(['message' => 'فقط السوبر أدمن يمكنه تعديل حالة حظر المشرفين.'], 403);
+        }
+
+        $targetUser->is_banned = !$targetUser->is_banned;
+        $targetUser->save();
+
+        $status = $targetUser->is_banned ? 'banned' : 'unbanned';
 
         return response()->json([
             'message' => "User has been $status successfully.",
-            'user' => $user,
+            'user' => $targetUser,
         ]);
     }
 
@@ -119,24 +165,30 @@ class AdminController extends Controller
                 ];
             });
 
-        // --- Subscription counts per plan type with date filter ---
-        $period = $request->query('period', 'month'); // 'all' | 'month' | 'custom'
-        $subQuery = Subscription::query();
+        // --- Subscription counts (Financials) — ONLY for Super Admin ---
+        $isSuperAdmin = $request->user()->role === 'super_admin';
+        $subscriptions = null;
+        $period = $request->query('period', 'month');
 
-        if ($period === 'month') {
-            $subQuery->whereYear('created_at', Carbon::now()->year)
-                     ->whereMonth('created_at', Carbon::now()->month);
-        } elseif ($period === 'custom') {
-            $year  = (int) $request->query('year', Carbon::now()->year);
-            $month = (int) $request->query('month', Carbon::now()->month);
-            $subQuery->whereYear('created_at', $year)
-                     ->whereMonth('created_at', $month);
+        if ($isSuperAdmin) {
+            $subQuery = Subscription::query();
+
+            if ($period === 'month') {
+                $subQuery->whereYear('created_at', Carbon::now()->year)
+                         ->whereMonth('created_at', Carbon::now()->month);
+            } elseif ($period === 'custom') {
+                $year  = (int) $request->query('year', Carbon::now()->year);
+                $month = (int) $request->query('month', Carbon::now()->month);
+                $subQuery->whereYear('created_at', $year)
+                         ->whereMonth('created_at', $month);
+            }
+
+            $subscriptions = [
+                'daily'   => (clone $subQuery)->where('type', 'daily')->count(),
+                'weekly'  => (clone $subQuery)->where('type', 'weekly')->count(),
+                'monthly' => (clone $subQuery)->where('type', 'monthly')->count(),
+            ];
         }
-        // 'all' => no date filter
-
-        $dailySubs   = (clone $subQuery)->where('type', 'daily')->count();
-        $weeklySubs  = (clone $subQuery)->where('type', 'weekly')->count();
-        $monthlySubs = (clone $subQuery)->where('type', 'monthly')->count();
 
         return response()->json([
             'total_users'      => $totalUsers,
@@ -145,11 +197,8 @@ class AdminController extends Controller
             'banned_users'     => $banned,
             'pending_reports'  => $pendingReports,
             'recent_users'     => $recentUsers,
-            'subscriptions'    => [
-                'daily'   => $dailySubs,
-                'weekly'  => $weeklySubs,
-                'monthly' => $monthlySubs,
-            ],
+            'subscriptions'    => $subscriptions,
+            'is_super_admin'   => $isSuperAdmin,
             'period'           => $period,
         ]);
     }

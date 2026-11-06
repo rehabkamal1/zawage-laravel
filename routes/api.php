@@ -57,9 +57,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/reports', [ReportController::class, 'index']);
         Route::put('/reports/{id}', [ReportController::class, 'update']);
 
-        // Admin Manual Payments routes
-        Route::get('/payments', [AdminController::class, 'indexPayments']);
-        Route::post('/payments/{id}/approve', [AdminController::class, 'approvePayment']);
-        Route::post('/payments/{id}/reject', [AdminController::class, 'rejectPayment']);
+        // Super Admin only routes (Financials & Role Management)
+        Route::middleware('super_admin')->group(function () {
+            Route::get('/payments', [AdminController::class, 'indexPayments']);
+            Route::post('/payments/{id}/approve', [AdminController::class, 'approvePayment']);
+            Route::post('/payments/{id}/reject', [AdminController::class, 'rejectPayment']);
+            Route::post('/users/{id}/change-role', [AdminController::class, 'changeRole']);
+        });
     });
 });
