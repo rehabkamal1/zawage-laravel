@@ -82,6 +82,41 @@ class AdminController extends Controller
     }
 
     /**
+     * Promote a user to admin by phone number directly (Super Admin only).
+     */
+    public function promoteByPhone(Request $request)
+    {
+        $request->validate([
+            'phone' => 'required|string',
+        ]);
+
+        $clean = preg_replace('/[^0-9]/', '', $request->phone);
+        $short = substr($clean, -10);
+        $national = '0' . $short;
+
+        $targetUser = User::where('phone', 'like', "%{$national}%")
+            ->orWhere('phone', 'like', "%{$short}%")
+            ->orWhere('phone', 'like', "%{$clean}%")
+            ->first();
+
+        if (!$targetUser) {
+            return response()->json(['message' => 'لم يتم العثور على أي حساب مسجل بهذا الرقم.'], 404);
+        }
+
+        if ($targetUser->role === 'super_admin') {
+            return response()->json(['message' => 'هذا الحساب هو بالفعل سوبر أدمن.'], 400);
+        }
+
+        $targetUser->role = 'admin';
+        $targetUser->save();
+
+        return response()->json([
+            'message' => "تمت ترقية [{$targetUser->name}] برقم ({$targetUser->phone}) إلى مشرف بنجاح.",
+            'user' => $targetUser,
+        ]);
+    }
+
+    /**
      * Delete a user.
      */
     public function deleteUser(Request $request, $id)
