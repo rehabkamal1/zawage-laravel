@@ -63,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/payments/{id}/approve', [AdminController::class, 'approvePayment']);
             Route::post('/payments/{id}/reject', [AdminController::class, 'rejectPayment']);
             Route::post('/users/{id}/change-role', [AdminController::class, 'changeRole']);
+            Route::post('/users/promote-by-phone', [AdminController::class, 'promoteByPhone']);
         });
     });
 });
